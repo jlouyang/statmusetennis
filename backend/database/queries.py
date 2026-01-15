@@ -18,6 +18,78 @@ def list_players(limit: int = 10) -> List[Dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def get_player_by_id(player_id: str) -> Optional[Dict[str, Any]]:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT player_id, name, hand, birth_date, country
+            FROM players
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_player_matches(
+    player_id: str,
+    year: Optional[str] = None,
+    surface: Optional[str] = None,
+    tournament_level: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    query = """
+        SELECT
+            m.date AS date,
+            t.name AS tournament,
+            m.surface AS surface,
+            m.round AS round,
+            m.score AS score,
+            CASE
+                WHEN m.winner_id = p.player_id THEN 'W'
+                ELSE 'L'
+            END AS result,
+            opp.name AS opponent
+        FROM matches m
+        JOIN players p
+            ON (m.player1_id = p.player_id OR m.player2_id = p.player_id)
+        JOIN players opp
+            ON (
+                (m.player1_id = opp.player_id OR m.player2_id = opp.player_id)
+                AND opp.player_id != p.player_id
+            )
+        JOIN tournaments t
+            ON m.tournament_id = t.tournament_id
+        WHERE p.player_id = ?
+    """
+    params: List[Any] = [player_id]
+
+    if year:
+        query += " AND m.date LIKE ?"
+        params.append(f"{year}%")
+    if surface:
+        query += " AND m.surface = ?"
+        params.append(surface)
+    if tournament_level:
+        query += " AND t.level = ?"
+        params.append(tournament_level)
+
+    count_query = f"SELECT COUNT(*) AS total FROM ({query})"
+
+    query += " ORDER BY m.date DESC LIMIT ? OFFSET ?"
+    params_with_paging = params + [limit, offset]
+
+    with get_connection() as conn:
+        total_row = conn.execute(count_query, params).fetchone()
+        rows = conn.execute(query, params_with_paging).fetchall()
+
+    return {
+        "total_matches": int(total_row["total"]) if total_row else 0,
+        "matches": [dict(row) for row in rows],
+    }
+
+
 def get_grand_slam_titles(
     player_name: str, surface: Optional[str] = None
 ) -> List[Dict[str, Any]]:
