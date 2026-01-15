@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tennis Stats Query</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+        max-width: 900px;
+      }
+      h1 {
+        margin-bottom: 8px;
+      }
+      form {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 8px;
+        font-size: 16px;
+      }
+      button {
+        padding: 8px 16px;
+        font-size: 16px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 12px;
+        border-radius: 6px;
+        overflow: auto;
+      }
+      .examples button {
+        margin: 4px 6px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tennis Stats Query</h1>
+    <p>Type a natural language query and see the parsed intent + results.</p>
+
+    <form id="query-form">
+      <input id="query-input" type="text" placeholder="e.g., Federer Grand Slam wins" />
+      <button type="submit">Search</button>
+    </form>
+
+    <div class="examples">
+      <button type="button" data-q="Federer Grand Slam wins">Grand Slams</button>
+      <button type="button" data-q="Federer vs Nadal">Head to Head</button>
+      <button type="button" data-q="Who won Wimbledon 2019?">Tournament Winner</button>
+      <button type="button" data-q="Djokovic career wins">Career Stats</button>
+      <button type="button" data-q="Nadal clay court record">Surface Stats</button>
+    </div>
+
+    <h3>Response</h3>
+    <pre id="response"></pre>
+
+    <script>
+      const form = document.getElementById("query-form");
+      const input = document.getElementById("query-input");
+      const responseEl = document.getElementById("response");
+      const exampleButtons = document.querySelectorAll(".examples button");
+
+      function setQuery(value) {
+        input.value = value;
+        input.focus();
+      }
+
+      exampleButtons.forEach((btn) => {
+        btn.addEventListener("click", () => setQuery(btn.dataset.q));
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const query = input.value.trim();
+        if (!query) {
+          return;
+        }
+        responseEl.textContent = "Loading...";
+        try {
+          const res = await fetch("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          });
+          const data = await res.json();
+          responseEl.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+          responseEl.textContent = String(err);
+        }
+      });
+    </script>
+  </body>
+</html>

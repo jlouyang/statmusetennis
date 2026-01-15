@@ -1,0 +1,7 @@
+venv/
+backend/data/raw/
+backend/data/tennis.db
+backend/data/DATA_VERSION.txt
+__pycache__/
+.pytest_cache/
+
