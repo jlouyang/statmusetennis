@@ -20,7 +20,6 @@ export default function Home() {
     if (!trimmed) {
       return;
     }
-    console.log("[ui] submit", { query: trimmed });
     setLoading(true);
     setResponse("");
     try {
@@ -29,17 +28,13 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: trimmed }),
       });
-      console.log("[ui] response", { status: res.status });
       const text = await res.text();
       if (!res.ok) {
-        console.warn("[ui] error body", text);
         setResponse(`HTTP ${res.status}\n${text}`);
         return;
       }
-      console.log("[ui] success body", text);
       setResponse(JSON.stringify(JSON.parse(text), null, 2));
     } catch (err) {
-      console.error("[ui] request failed", err);
       setResponse(String(err));
     } finally {
       setLoading(false);

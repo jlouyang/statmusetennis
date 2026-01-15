@@ -20,6 +20,50 @@ def test_players_endpoint():
     payload = response.json()
     assert "players" in payload
     assert isinstance(payload["players"], list)
+    assert len(payload["players"]) <= 3
+
+
+def test_player_detail_endpoint():
+    # Fetch a known player by ID (Federer).
+    response = client.get("/api/players/103819")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player_id"] == "103819"
+    assert payload["name"] == "Roger Federer"
+
+
+def test_player_detail_not_found():
+    # Unknown player IDs should return a 404.
+    response = client.get("/api/players/000000")
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["detail"] == "Player not found"
+
+
+def test_player_matches_endpoint():
+    # Fetch match history with pagination and filters.
+    response = client.get("/api/players/103819/matches?limit=5&year=2017")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["player_id"] == "103819"
+    assert payload["total_matches"] >= 1
+    assert len(payload["matches"]) <= 5
+
+
+def test_query_unknown_type():
+    # Unrecognized queries should return a consistent 400 error response.
+    response = client.post("/api/query", json={"query": "What is the meaning of life?"})
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["error"] == "Unable to determine query type"
+
+
+def test_query_missing_player():
+    # Query type detected but player not recognized.
+    response = client.post("/api/query", json={"query": "Grand Slam wins"})
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["error"] == "Player not recognized"
 
 
 def test_query_endpoint():

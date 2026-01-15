@@ -1,11 +1,13 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from backend.database.queries import (
     health_check,
     list_players,
+    get_player_by_id,
+    get_player_matches,
     get_grand_slam_titles,
     get_head_to_head,
     get_tournament_winner,
@@ -28,6 +30,48 @@ def get_players(limit: int = 10):
     return {"players": list_players(limit=limit)}
 
 
+@router.get("/players/{player_id}")
+def get_player(player_id: str):
+    player = get_player_by_id(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found",
+        )
+    return player
+
+
+@router.get("/players/{player_id}/matches")
+def get_player_match_history(
+    player_id: str,
+    year: str | None = None,
+    surface: str | None = None,
+    tournament_level: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    player = get_player_by_id(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found",
+        )
+    data = get_player_matches(
+        player_id,
+        year=year,
+        surface=surface,
+        tournament_level=tournament_level,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "player_id": player["player_id"],
+        "player_name": player["name"],
+        "total_matches": data["total_matches"],
+        "matches": data["matches"],
+    }
+
+
 class QueryRequest(BaseModel):
     query: str
 
@@ -38,6 +82,26 @@ def post_query(payload: QueryRequest):
     parsed = parse_natural_query(payload.query)
     logger.info("parsed=%s", parsed)
     results = None
+    error_message = None
+
+    if not parsed.get("type"):
+        error_message = "Unable to determine query type"
+    elif parsed["type"] in {"grand_slam_titles", "career_stats", "surface_stats"}:
+        if not parsed.get("player"):
+            error_message = "Player not recognized"
+    elif parsed["type"] == "head_to_head":
+        if not parsed.get("player") or not parsed.get("opponent"):
+            error_message = "Both players are required for head-to-head queries"
+    elif parsed["type"] == "tournament_winner":
+        if not parsed.get("filters", {}).get("tournament"):
+            error_message = "Tournament name not recognized"
+
+    if error_message:
+        logger.info("query_error=%s", error_message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": error_message, "parsed": parsed},
+        )
     if parsed.get("type") == "grand_slam_titles" and parsed.get("player"):
         titles = get_grand_slam_titles(
             parsed["player"], parsed.get("filters", {}).get("surface")
