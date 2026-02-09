@@ -53,7 +53,11 @@ uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
 Environment variables (Render):
 ```bash
-DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+# Use Supabase pooler URL (IPv4). Render does not support IPv6; the direct URL (db.*.supabase.co:5432) will fail with "Network is unreachable".
+# In Supabase Dashboard: Connect → Session mode or Transaction mode, then paste the connection string.
+# Session: postgres://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+# Transaction: postgres://postgres:<password>@db.<project-ref>.supabase.co:6543/postgres
+DATABASE_URL="postgres://..."
 LLM_API_KEY="your_gemini_key"
 LLM_MODEL="gemini-2.5-flash"
 QUERY_PARSER="llm"
