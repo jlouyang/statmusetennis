@@ -21,3 +21,40 @@ Open `http://localhost:3000` to use the simple query UI.
 
 Optional: set `BACKEND_URL` if your API isn't on `http://localhost:8000`.
 
+### LLM parser (Gemini)
+Set environment variables:
+```bash
+export QUERY_PARSER=llm
+export LLM_API_KEY="your_gemini_key"
+export LLM_MODEL="gemini-2.5-flash"
+```
+
+If `LLM_API_KEY` is missing, the parser falls back to the rule-based logic.
+
+### Import data
+Run the importer as a package so imports resolve correctly:
+```bash
+cd /Users/jeremyouyang/Desktop/projects/statmusetennis
+python3 -m backend.data.import_data
+```
+
+### Render deployment (backend)
+Use repo root as the working directory.
+
+Build command:
+```bash
+pip install -r backend/requirements.txt
+```
+
+Start command:
+```bash
+uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+```
+
+Environment variables (Render):
+```bash
+DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+LLM_API_KEY="your_gemini_key"
+LLM_MODEL="gemini-2.5-flash"
+QUERY_PARSER="llm"
+```

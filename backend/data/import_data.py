@@ -1,22 +1,26 @@
 from pathlib import Path
-import sqlite3
 import subprocess
 
 import pandas as pd
+from sqlalchemy import text
+
+from backend.database.db import get_database_url, get_engine
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "tennis.db"
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 DATA_DIR = BASE_DIR / "data" / "raw" / "atp"
 DATA_VERSION_PATH = BASE_DIR / "data" / "DATA_VERSION.txt"
 
 
 def setup_database() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
-        with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
-            conn.executescript(schema_file.read())
+    engine = get_engine()
+    with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
+        schema_sql = schema_file.read()
+    statements = [statement.strip() for statement in schema_sql.split(";") if statement.strip()]
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
 
 
 def record_data_version() -> None:
@@ -52,9 +56,17 @@ def import_players() -> None:
     df["player_id"] = df["player_id"].astype(str)
     df = df.where(pd.notna(df), None)
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM players")
-        df.to_sql("players", conn, if_exists="append", index=False)
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM players"))
+        df.to_sql(
+            "players",
+            conn,
+            if_exists="append",
+            index=False,
+            chunksize=5000,
+            method="multi",
+        )
 
 
 def import_tournaments() -> None:
@@ -84,9 +96,17 @@ def import_tournaments() -> None:
     df = df[["tournament_id", "name", "level", "surface", "draw_size"]]
     df = df.where(pd.notna(df), None)
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM tournaments")
-        df.to_sql("tournaments", conn, if_exists="append", index=False)
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM tournaments"))
+        df.to_sql(
+            "tournaments",
+            conn,
+            if_exists="append",
+            index=False,
+            chunksize=5000,
+            method="multi",
+        )
 
 
 def import_matches() -> None:
@@ -143,9 +163,17 @@ def import_matches() -> None:
         frames.append(df)
 
     merged = pd.concat(frames, ignore_index=True)
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM matches")
-        merged.to_sql("matches", conn, if_exists="append", index=False)
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM matches"))
+        merged.to_sql(
+            "matches",
+            conn,
+            if_exists="append",
+            index=False,
+            chunksize=5000,
+            method="multi",
+        )
 
 
 def import_rankings() -> None:
@@ -169,9 +197,17 @@ def import_rankings() -> None:
     merged = pd.concat(frames, ignore_index=True)
     merged = merged.dropna(subset=["player_id", "date"])
     merged = merged.drop_duplicates(subset=["player_id", "date"], keep="last")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM rankings")
-        merged.to_sql("rankings", conn, if_exists="append", index=False)
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM rankings"))
+        merged.to_sql(
+            "rankings",
+            conn,
+            if_exists="append",
+            index=False,
+            chunksize=5000,
+            method="multi",
+        )
 
 
 if __name__ == "__main__":
@@ -188,5 +224,5 @@ if __name__ == "__main__":
     else:
         print(f"Data directory not found: {DATA_DIR}")
     record_data_version()
-    print(f"Database ready at {DB_PATH}")
+    print(f"Database ready at {get_database_url()}")
 
